@@ -1,17 +1,5 @@
 const std = @import("std");
 
-
-// pub fn parse(allocator: std.mem.Allocator) !{
-//     var args = try std.process.argsWithAllocator(allocator);
-//     const process_name = args.next() orelse "tinyweather-node";
-//
-//     var port: u16 = 8080;
-//     if (std.mem.endsWith(u8, process_name, "tinyweather")) {
-//         port = 8081;
-//     }
-//
-//     var address: []const u8 = "127.0.0.1";
-//
 //     while (args.next()) |arg| {
 //         const option = std.meta.stringToEnum(Option, arg) orelse {
 //             std.debug.print("{s} is not a valid argument\n", .{arg});
@@ -38,20 +26,34 @@ const std = @import("std");
 //             .@"--help" => help(process_name),
 //         }
 //     }
-//     return .{
-//         .address = address,
-//         .port = port,
-//         .it = args,
-//     };
-// }
 pub fn main() !void {
+    const Option = enum {
+        show,
+        showconf,
+        set,
+        setconf,
+        addconf,
+        syncconf,
+        genkey,
+        genpsk,
+        pubkey,
+    };
 
-    
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
 
     var args = try std.process.argsWithAllocator(allocator);
-    const process_name = args.next() orelse "wg-zig";
+    _ = args.next() orelse "wg-zig";
 
+    while (args.next()) |arg| {
+        const option = std.meta.stringToEnum(Option, arg) orelse {
+            std.debug.print("{s} is not a valid argument\n", .{arg});
+            return;
+        };
+        switch (option) {
+            .show => {},
+            else => {},
+        }
+    }
 }
