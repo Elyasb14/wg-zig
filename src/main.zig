@@ -53,7 +53,10 @@ pub fn main() !void {
         };
         switch (option) {
             .show => {},
-            else => {},
+            else => {
+                std.log.err("option \x1b[31m{s}\x1b[0m is not supported", .{@tagName(option)});
+                return;
+            },
         }
     }
 }

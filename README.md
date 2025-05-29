@@ -7,3 +7,7 @@ A rewrite of [wireguard-tools](https://github.com/WireGuard/wireguard-tools
 zig build install
 ```
 
+## OS Support
+
+We will start by only supporting macos and linux.
+
