@@ -9,17 +9,34 @@ const c = @cImport({
     @cInclude("net/if.h");
 });
 
-fn get_wireguard_paths() void {
+fn get_wg_files(alloc: std.mem.Allocator) !?[][]const u8 {
     const tag = builtin.target.os.tag;
 
-    if (tag.isDarwin()) {
-        return;
-    }
-    if (tag == .linux) {
-        return;
-    }
+    var buf = std.ArrayList([]const u8).init(alloc);
+    defer buf.deinit();
 
-    return null;
+    switch (tag) {
+        .macos => {
+            const dir = try std.fs.openDirAbsolute("/opt/homebrew/etc/wireguard", .{ .iterate = true });
+            var it = dir.iterate();
+            while (try it.next()) |x| {
+                if (std.mem.endsWith(u8, x.name, ".conf")) try buf.append(x.name);
+            }
+            return try buf.toOwnedSlice();
+        },
+        .linux => {
+            const dir = try std.fs.openDirAbsolute("/etc/wireguard", .{ .iterate = true });
+            var it = dir.iterate();
+            while (try it.next()) |x| {
+                if (std.mem.endsWith(u8, x.name, ".conf")) try buf.append(x.name);
+            }
+            return try buf.toOwnedSlice();
+        },
+        else => {
+            std.debug.print("we don't support OS: {s}", .{@tagName(tag)});
+            return null;
+        },
+    }
 }
 
 fn get_netif() void {
@@ -53,4 +70,8 @@ fn get_netif() void {
     c.freeifaddrs(ifap);
 }
 
-pub fn show_main() void {}
+pub fn show_main(alloc: std.mem.Allocator) !?void {
+    const wg_paths = try get_wg_files(alloc) orelse return null;
+
+
+}
