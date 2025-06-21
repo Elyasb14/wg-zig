@@ -92,8 +92,8 @@ fn get_wg_configs(alloc: std.mem.Allocator) ![]WGConfig {
             const full_path = try std.fs.path.join(alloc, &[_][]const u8{ path, entry.name });
 
             const contents = try dir.readFileAlloc(alloc, entry.name, std.math.maxInt(usize));
-            const wfif = WGConfig.init(full_path, contents);
-            try files.append(wfif);
+            const wgif = WGConfig.init(full_path, contents);
+            try files.append(wgif);
         }
     }
 
