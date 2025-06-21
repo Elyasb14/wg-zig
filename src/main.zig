@@ -28,7 +28,7 @@ pub fn main() !void {
         };
         switch (option) {
             .show => {
-                try show.show_main(allocator) orelse return;
+                show.show_main(allocator);
             },
             else => {
                 std.log.err("option \x1b[31m{s}\x1b[0m is not supported", .{@tagName(option)});

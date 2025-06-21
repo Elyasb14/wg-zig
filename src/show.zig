@@ -9,36 +9,6 @@ const c = @cImport({
     @cInclude("net/if.h");
 });
 
-fn get_wg_files(alloc: std.mem.Allocator) !?[][]const u8 {
-    const tag = builtin.target.os.tag;
-
-    var buf = std.ArrayList([]const u8).init(alloc);
-    defer buf.deinit();
-
-    switch (tag) {
-        .macos => {
-            const dir = try std.fs.openDirAbsolute("/opt/homebrew/etc/wireguard", .{ .iterate = true });
-            var it = dir.iterate();
-            while (try it.next()) |x| {
-                if (std.mem.endsWith(u8, x.name, ".conf")) try buf.append(x.name);
-            }
-            return try buf.toOwnedSlice();
-        },
-        .linux => {
-            const dir = try std.fs.openDirAbsolute("/etc/wireguard", .{ .iterate = true });
-            var it = dir.iterate();
-            while (try it.next()) |x| {
-                if (std.mem.endsWith(u8, x.name, ".conf")) try buf.append(x.name);
-            }
-            return try buf.toOwnedSlice();
-        },
-        else => {
-            std.debug.print("we don't support OS: {s}", .{@tagName(tag)});
-            return null;
-        },
-    }
-}
-
 fn get_netif() void {
     var ifap: ?*c.struct_ifaddrs = null;
     if (c.getifaddrs(&ifap) != 0) {
@@ -55,7 +25,9 @@ fn get_netif() void {
 
         const family = ifa_ptr.ifa_addr.*.sa_family;
         const name = std.mem.sliceTo(ifa_ptr.ifa_name, 0);
-        std.debug.print("Interface: {s}\n", .{name});
+        if (std.mem.startsWith(u8, name, "utun")) {
+            std.debug.print("Interface: {s}\n", .{name});
+        }
 
         if (family == c.AF_INET) {
             const addr_in: *const c.struct_sockaddr_in = @alignCast(@ptrCast(ifa_ptr.ifa_addr));
@@ -70,8 +42,51 @@ fn get_netif() void {
     c.freeifaddrs(ifap);
 }
 
-pub fn show_main(alloc: std.mem.Allocator) !?void {
-    const wg_paths = try get_wg_files(alloc) orelse return null;
+const WGIFInfo = struct {
+    path: []const u8,
+    contents: []const u8,
 
+    pub fn init(path: []const u8, contents: []const u8) WGIFInfo {
+        return .{ .path = path, .contents = contents };
+    }
+};
 
+fn get_wg_configs(alloc: std.mem.Allocator) ![]WGIFInfo {
+    const tag = builtin.target.os.tag;
+
+    var files = std.ArrayList(WGIFInfo).init(alloc);
+    defer files.deinit();
+
+    const path = switch (tag) {
+        .macos => "/opt/homebrew/etc/wireguard",
+        .linux => "/etc/wireguard",
+        else => return error.UnsupportedOS,
+    };
+
+    const dir = try std.fs.openDirAbsolute(path, .{ .iterate = true });
+    var it = dir.iterate();
+
+    while (try it.next()) |entry| {
+        if (std.mem.endsWith(u8, entry.name, ".conf")) {
+            const full_path = try std.fs.path.join(alloc, &[_][]const u8{ path, entry.name });
+
+            const contents = try dir.readFileAlloc(alloc, entry.name, std.math.maxInt(usize));
+            const wfif = WGIFInfo.init(full_path, contents);
+            try files.append(wfif);
+        }
+    }
+
+    return try files.toOwnedSlice();
+}
+pub fn show_main(alloc: std.mem.Allocator) void {
+    const configs = get_wg_configs(alloc) catch |err| {
+        std.debug.print("ERROR: {any}\n", .{err});
+        return;
+    };
+    get_netif();
+
+    for (configs) |config| {
+        std.debug.print("path: {s}\n", .{config.path});
+        std.debug.print("contents: {s}\n", .{config.contents});
+    }
 }
